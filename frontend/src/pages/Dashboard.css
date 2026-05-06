@@ -138,3 +138,45 @@ body {
   border-radius: 5px;
   cursor: pointer;
 }
+/* Priority highlights */
+.task-card.overdue {
+  border: 2px solid #e74c3c;
+  background-color: rgba(231, 76, 60, 0.08);
+}
+
+.task-card.high-priority {
+  border: 2px solid #f39c12;
+  background-color: rgba(243, 156, 18, 0.08);
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: bold;
+  margin-bottom: 6px;
+}
+
+.badge-overdue {
+  background-color: #e74c3c;
+  color: white;
+}
+
+.badge-high {
+  background-color: #f39c12;
+  color: white;
+}
+
+.priority-score {
+  font-size: 0.8rem;
+  color: #aaa;
+  margin: 4px 0;
+}
+.task-id-badge {
+  font-size: 0.75rem;
+  color: #aaa;
+  font-weight: bold;
+  margin-bottom: 4px;
+  display: block;
+}

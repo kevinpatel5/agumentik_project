@@ -1,8 +1,20 @@
 const Task = require('../models/Task');
 
-// @desc    Create a new task
-// @route   POST /api/tasks
-// @access  Private
+const calculatePriority = (task) => {
+  // Completed tasks have no priority
+  if (task.status === 'completed') return 0;
+
+  const now = new Date();
+  const deadline = new Date(task.deadline);
+  const daysUntilDeadline = (deadline - now) / (1000 * 60 * 60 * 24);
+
+  if (daysUntilDeadline < 0) return 1000;
+  if (daysUntilDeadline <= 1) return 100;
+  if (daysUntilDeadline <= 3) return 75;
+  if (daysUntilDeadline <= 7) return 50;
+  return 10;
+};
+
 const createTask = async (req, res) => {
   const { title, description, category, status, deadline } = req.body;
 
@@ -11,8 +23,12 @@ const createTask = async (req, res) => {
   }
 
   try {
+    const count = await Task.countDocuments();
+    const taskId = `TASK-${count + 1}`;
+
     const task = await Task.create({
       user: req.user.id,
+      taskId,
       title,
       description,
       category,
@@ -20,45 +36,49 @@ const createTask = async (req, res) => {
       deadline,
     });
 
+    const io = req.app.get('io');
+    if (io) io.emit('task-changed');
+
     res.status(201).json(task);
   } catch (error) {
-    res.status(500).json({ message: 'Server error' });
+    console.error('CREATE TASK ERROR:', error.message);
+    res.status(500).json({ message: error.message });
   }
 };
 
-// @desc    Get all tasks for logged-in user
-// @route   GET /api/tasks
-// @access  Private
 const getTasks = async (req, res) => {
   try {
     const tasks = await Task.find({ user: req.user.id });
 
-    const now = new Date();
+    const sortedTasks = tasks
+      .map((task) => ({
+        ...task.toObject(),
+        priorityScore: calculatePriority(task),
+      }))
+      .sort((a, b) => {
+        // 0. Completed tasks always go to bottom
+        if (a.status === 'completed' && b.status !== 'completed') return 1;
+        if (b.status === 'completed' && a.status !== 'completed') return -1;
 
-    const sortedTasks = tasks.sort((a, b) => {
-      const aOverdue = new Date(a.deadline) < now;
-      const bOverdue = new Date(b.deadline) < now;
+        // 1. Sort by priority score descending
+        if (b.priorityScore !== a.priorityScore)
+          return b.priorityScore - a.priorityScore;
 
-      // 1. Overdue first
-      if (aOverdue && !bOverdue) return -1;
-      if (!aOverdue && bOverdue) return 1;
+        // 2. Nearest deadline first
+        const deadlineDiff = new Date(a.deadline) - new Date(b.deadline);
+        if (deadlineDiff !== 0) return deadlineDiff;
 
-      // 2. Nearest deadline
-      const deadlineDiff = new Date(a.deadline) - new Date(b.deadline);
-      if (deadlineDiff !== 0) return deadlineDiff;
-
-      // 3. Earlier created
-      return new Date(a.createdAt) - new Date(b.createdAt);
-    });
+        // 3. Earlier created first
+        return new Date(a.createdAt) - new Date(b.createdAt);
+      });
 
     res.json(sortedTasks);
   } catch (error) {
-    res.status(500).json({ message: 'Server error' });
+    console.error('GET TASKS ERROR:', error.message);
+    res.status(500).json({ message: error.message });
   }
 };
-// @desc    Update a task
-// @route   PUT /api/tasks/:id
-// @access  Private
+
 const updateTask = async (req, res) => {
   try {
     const task = await Task.findById(req.params.id);
@@ -67,7 +87,6 @@ const updateTask = async (req, res) => {
       return res.status(404).json({ message: 'Task not found' });
     }
 
-    // Check if user owns the task
     if (task.user.toString() !== req.user.id) {
       return res.status(401).json({ message: 'Not authorized' });
     }
@@ -76,15 +95,16 @@ const updateTask = async (req, res) => {
       new: true,
     });
 
+    const io = req.app.get('io');
+    if (io) io.emit('task-changed');
+
     res.json(updatedTask);
   } catch (error) {
-    res.status(500).json({ message: 'Server error' });
+    console.error('UPDATE TASK ERROR:', error.message);
+    res.status(500).json({ message: error.message });
   }
 };
 
-// @desc    Delete a task
-// @route   DELETE /api/tasks/:id
-// @access  Private
 const deleteTask = async (req, res) => {
   try {
     const task = await Task.findById(req.params.id);
@@ -93,16 +113,19 @@ const deleteTask = async (req, res) => {
       return res.status(404).json({ message: 'Task not found' });
     }
 
-    // Check if user owns the task
     if (task.user.toString() !== req.user.id) {
       return res.status(401).json({ message: 'Not authorized' });
     }
 
     await Task.findByIdAndDelete(req.params.id);
 
+    const io = req.app.get('io');
+    if (io) io.emit('task-changed');
+
     res.json({ message: 'Task removed' });
   } catch (error) {
-    res.status(500).json({ message: 'Server error' });
+    console.error('DELETE TASK ERROR:', error.message);
+    res.status(500).json({ message: error.message });
   }
 };
 

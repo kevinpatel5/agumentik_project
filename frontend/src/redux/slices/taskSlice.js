@@ -32,8 +32,6 @@ export const createTask = createAsyncThunk(
       await axios.post(API_URL, taskData, {
         headers: { Authorization: `Bearer ${token}` },
       });
-
-      // Re-fetch to maintain correct sorting
       dispatch(fetchTasks());
     } catch (error) {
       return rejectWithValue(
@@ -52,8 +50,6 @@ export const updateTask = createAsyncThunk(
       await axios.put(`${API_URL}/${id}`, taskData, {
         headers: { Authorization: `Bearer ${token}` },
       });
-
-      // Re-fetch for correct order
       dispatch(fetchTasks());
     } catch (error) {
       return rejectWithValue(
@@ -72,8 +68,6 @@ export const deleteTask = createAsyncThunk(
       await axios.delete(`${API_URL}/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-
-      // Re-fetch after delete
       dispatch(fetchTasks());
     } catch (error) {
       return rejectWithValue(
@@ -102,7 +96,8 @@ const taskSlice = createSlice({
       })
       .addCase(fetchTasks.fulfilled, (state, action) => {
         state.loading = false;
-        state.tasks = action.payload;
+        // Sort by priorityScore descending
+        state.tasks = [...action.payload].sort((a, b) => b.priorityScore - a.priorityScore);
       })
       .addCase(fetchTasks.rejected, (state, action) => {
         state.loading = false;

@@ -6,6 +6,11 @@ const taskSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  taskId: {
+    type: String,
+    unique: true,
+    sparse: true,   // ← allows old tasks without taskId to coexist
+  },
   title: {
     type: String,
     required: true
@@ -20,9 +25,15 @@ const taskSchema = new mongoose.Schema({
   deadline: {
     type: Date,
     required: true
+  },
+  priorityScore: {
+    type: Number,
+    default: 0
   }
 }, {
   timestamps: true
 });
+
+// REMOVED pre-save hook — taskId is now generated in controller
 
 module.exports = mongoose.model('Task', taskSchema);
