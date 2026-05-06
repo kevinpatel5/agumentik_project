@@ -1,7 +1,6 @@
 const Task = require('../models/Task');
 
 const calculatePriority = (task) => {
-  // Completed tasks have no priority
   if (task.status === 'completed') return 0;
 
   const now = new Date();
@@ -23,8 +22,14 @@ const createTask = async (req, res) => {
   }
 
   try {
-    const count = await Task.countDocuments();
-    const taskId = `TASK-${count + 1}`;
+    // Fix: use last task's ID to avoid duplicates
+    const lastTask = await Task.findOne().sort({ createdAt: -1 });
+    let taskNumber = 1;
+    if (lastTask && lastTask.taskId) {
+      const lastNumber = parseInt(lastTask.taskId.split('-')[1]);
+      if (!isNaN(lastNumber)) taskNumber = lastNumber + 1;
+    }
+    const taskId = `TASK-${taskNumber}`;
 
     const task = await Task.create({
       user: req.user.id,
